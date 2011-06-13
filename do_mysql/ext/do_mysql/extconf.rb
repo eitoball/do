@@ -2,6 +2,35 @@ ENV["RC_ARCHS"] = "" if RUBY_PLATFORM =~ /darwin/
 
 require 'mkmf'
 
+if RUBY_VERSION <= '1.8.6'
+  class String
+    def tr_cpp
+      strip.upcase.tr_s("^A-Z0-9_", "_")
+    end
+  end
+
+  def try_const(const, headers = nil, opt = "", &b)
+    const, type = *const
+    if try_compile(<<"SRC", opt, &b)
+#{COMMON_HEADERS}
+#{cpp_include(headers)}
+/*top*/
+typedef #{type || 'int'} conftest_type;
+conftest_type conftestval = #{type ? '' : '(int)'}#{const};
+SRC
+      $defs.push(format("-DHAVE_CONST_%s", const.tr_cpp))
+      true
+    else
+      false
+    end
+  end
+  def have_const(const, headers = nil, opt = "", &b)
+    checking_for checking_message([*const].compact.join(' '), headers, opt) do
+      try_const(const, headers, opt, &b)
+    end
+  end
+end
+
 # Allow for custom compiler to be specified.
 RbConfig::MAKEFILE_CONFIG['CC'] = ENV['CC'] if ENV['CC']
 
